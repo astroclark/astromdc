@@ -1,4 +1,35 @@
 #!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# Copyright (C) 2014-2015 James Clark <james.clark@ligo.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+"""
+spharms_from_quadrupoles.py
+
+Read mass-quadrupole time-derivative data from an ascii file and construct
+(sky-averaged) spherical harmonic representation for the GW signal from each
+mode.  Generates 1 output file for each mode, in NINJA1 format, as well as an
+ini file for input to the LAL NINJA codes.
+
+USAGE: spharms_from_quadrupoles.py <input_file> <waveform_label>
+
+Input file must contain mass quadrupole data in geometerized units with the
+following columns:
+
+    times, Ixx, Ixy, Ixz, Iyy, Iyz, Izz 
+
+"""
 
 import sys
 from optparse import OptionParser
@@ -58,10 +89,11 @@ times, Ixx, Ixy, Ixz, Iyy, Iyz, Izz = \
 # ensure first time stamp is zero
 times -= times[0]
 
-####################################################
-#
-# Allocate storage for simulation data
-#
+######################################################################
+#                                                                    #
+# Construct expansion parameters and write to ascii in NINJA1 format #
+#                                                                    #
+######################################################################
 
 # putting the data in laltimeseries allows us to use lalsim tapering functions
 hplus_sim=lal.CreateREAL8TimeSeries('hplus', lal.LIGOTimeGPS(), 0.0,
@@ -70,11 +102,25 @@ hplus_sim=lal.CreateREAL8TimeSeries('hplus', lal.LIGOTimeGPS(), 0.0,
 hcross_sim=lal.CreateREAL8TimeSeries('hcross', lal.LIGOTimeGPS(), 0.0,
         1./sample_rate, lal.StrainUnit, len(times))
 
+#
+# Construct an ini file for further processing with NINJA-type tools
+#
+inifile = open(waveformlabel+".ini", 'w')
+
+# XXX: hard-coding the mass-ratio and mass-scale here.  We can add these as
+# arguments later if desired.  Mass ratio is irrelevant for general matter
+# waveforms, but is needed by the existing ninja codes
+headerstr="""mass-ratio = 1.0
+mass-scale = 1
+simulation-details = {0}\n
+""".format(waveformlabel)
+inifile.writelines(headerstr)
+
 # Loop over harmonics
 #for m in [-2,-1,0,1,2]:
 for m in [-2,2]:
 
-    filename=args[1]+"_l2m%d.asc"%m
+    filename=waveformlabel+"_l2m%d.asc"%m
 
     # Construct expansion parameters
     Hlm = construct_Hlm(Ixx, Ixy, Ixz, Iyy, Iyz, Izz, l=2, m=m)
@@ -89,14 +135,17 @@ for m in [-2,2]:
     lalsim.SimInspiralREAL8WaveTaper(hcross_sim.data,
             lalsim.SIM_INSPIRAL_TAPER_START)
 
-    # --- Write to file
+    # --- Write data to file
     f = open(filename,'w')
     for j in range(hplus_sim.data.length):
         f.write("%.16f %.16f %.16f\n"%(times[j], hplus_sim.data.data[j],
             hcross_sim.data.data[j]))
     f.close()
 
+    # --- append to ini file
+    inifile.writelines("2,{0} = {1}\n".format(m, filename))
 
+inifile.close()
 
 
 
