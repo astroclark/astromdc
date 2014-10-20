@@ -1,0 +1,102 @@
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+
+\usepackage{beamerthemeshadow}
+\setbeamertemplate{caption}[numbered]
+
+\hypersetup{colorlinks}
+
+\def\gw#1{gravitational wave#1 (GW#1)\gdef\gw{GW}}
+\def\ns#1{neutron star#1 (NS#1)\gdef\ns{NS}}
+
+\newcommand{\red}[1]{{\color{red}{#1}}}
+
+\begin{document}
+\title{(Some) Waveform Simulation [MDC] Infrastructure}
+\subtitle{All-Sky Burst Call Oct 21$^{\text{st}}$ 2014}  
+\author{James A. Clark}
+\institute{Georgia Institute Of Technology}
+\date{} 
+
+\begin{frame}[plain]
+\titlepage
+\end{frame}
+
+%\begin{frame}\frametitle{Table of contents}\tableofcontents
+%\end{frame} 
+
+\section{{\tt LALSimulation} \& Burst Injections}
+
+\begin{frame}
+    \frametitle{Bursts In LALSimulation}
+    {\tt LALSimulation}: simulation engine for well-defined, analytic waveforms.
+    Support for making MDC frames for:
+    \begin{itemize}
+        \item sine-Gaussians
+        \item white noise bursts
+        \item Gaussians (?)
+        \item Cosmic strings
+        \item \dots
+    \end{itemize}
+    Astrophysical waveforms currently unsupported:
+    \begin{itemize}
+        \item Supernovae
+        \item Binary coalescence with matter
+        \item NR BBH (!)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{MDC Generation With LALSimulation}
+    Utilities in excess-power for e.g.,:
+    \begin{itemize}
+        \item SG MDC frames with user-specified distributions on optimal-SNR
+            distribution, frequencies, quality factors
+        \item WNB MDC frames with user-specified distributions on optimal-SNR
+            distribution, frequencies, bandwidths, durations
+        \item Distributions created by {\tt lalapps\_binj} - creates XML file
+            with a {\tt sim\_burst} which is readable by {\tt LAL} codes.  Any
+            waveform already in {\tt LALSimBurst.c} is supported.
+        \item Already deployed in ETG comparison study, cosmic string search 
+    \end{itemize}
+    Useful links:
+    \begin{itemize}
+        \item Excess-power utilities: 
+        \item ETG trigger comparison wiki:
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Astrophysical Waveforms: NINJA Codes}
+    {\tt LALSimulation} and friends: parameterised waveforms.  No current
+    support for waveforms directly from numerical simulation (SNe, NR BBH, NSBH,
+    BNS).
+    \begin{itemize}
+        \item Obvious candidate: {\tt NINJA} codes\footnote{Currently broken,
+            unmaintained but should just need an update}
+        \item NINJA infrastructure: tools and standards for handling NR BBH data in a
+            standard format, project signals with random extrinsic params onto
+            detectors.
+        \item Currently only support binary mergers (i.e., {\tt sim\_inspiral} tables);
+            would be convenient to add support to {\tt sim\_burst} for e.g., SNe
+            \& injection-finding / characterisation using burst codes
+        \item {\tt NINJA} codes were used in IMR study, S6 IMBH analysis,
+            post-BNS merger studies (and NINJA!)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{LALSimulation \& Swig-wrappings}
+    Injections easily performed in python
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Summary}
+    \begin{itemize}
+        \item 
+    \end{itemize}
+\end{frame}
+
+
+\end{document}
