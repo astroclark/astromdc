@@ -30,7 +30,7 @@
 \begin{frame}
     \frametitle{Bursts In LALSimulation}
     {\tt LALSimulation}: simulation engine for well-defined, analytic waveforms.
-    Support for making MDC frames for:
+    Can make the following \emph{right now}:
     \begin{itemize}
         \item sine-Gaussians
         \item white noise bursts
@@ -38,7 +38,7 @@
         \item Cosmic strings
         \item \dots
     \end{itemize}
-    Astrophysical waveforms currently unsupported:
+    Astrophysical waveforms will require a little more work:
     \begin{itemize}
         \item Supernovae
         \item Binary coalescence with matter
@@ -50,19 +50,19 @@
     \frametitle{MDC Generation With LALSimulation}
     Utilities in excess-power for e.g.,:
     \begin{itemize}
-        \item SG MDC frames with user-specified distributions on optimal-SNR
-            distribution, frequencies, quality factors
-        \item WNB MDC frames with user-specified distributions on optimal-SNR
-            distribution, frequencies, bandwidths, durations
+        \item MDC frames with user-specified distributions on optimal-SNR
+            $h_{\text{rss}}$, frequencies, quality factors, bandwidths,
+            durations etc
         \item Distributions created by {\tt lalapps\_binj} - creates XML file
-            with a {\tt sim\_burst} which is readable by {\tt LAL} codes.  Any
-            waveform already in {\tt LALSimBurst.c} is supported.
+            with a {\tt sim\_burst} which is readable by {\tt LAL} codes.
         \item Already deployed in ETG comparison study, cosmic string search 
     \end{itemize}
     Useful links:
     \begin{itemize}
-        \item Excess-power utilities: 
         \item ETG trigger comparison wiki:
+            \href{https://wiki.ligo.org/viewauth/DetChar/ETGperformanceStudy}{https://wiki.ligo.org/viewauth/DetChar/ETGperformanceStudy}
+        \item Excess-power utilities:
+            \href{https://github.com/cpankow/excesspower-utils}{https://github.com/cpankow/excesspower-utils}
     \end{itemize}
 \end{frame}
 
@@ -73,7 +73,7 @@
     BNS).
     \begin{itemize}
         \item Obvious candidate: {\tt NINJA} codes\footnote{Currently broken,
-            unmaintained but should just need an update}
+            unmaintained\dots}
         \item NINJA infrastructure: tools and standards for handling NR BBH data in a
             standard format, project signals with random extrinsic params onto
             detectors.
@@ -86,15 +86,57 @@
 \end{frame}
 
 \begin{frame}
-    \frametitle{LALSimulation \& Swig-wrappings}
-    Injections easily performed in python
+    \frametitle{LALSimulation \& Swig}
+    Worth noting injections easily performed in python using swig-wrapped LAL
+    routines:
+    \begin{enumerate}
+        \item Construct LAL TimeSeries objects for $h_+$, $h_{\times}$ (e.g.,
+            read from file or generated with {\tt LALSimulation})
+        \item Generate sky-location, polarisation, detector site (can e.g., be
+            read from {\tt sim\_burst, sim\_inspiral} tables)
+        \item {\tt SimDetectorStrainREAL8TimeSeries()} projects $h_{+,\times}$
+            onto this detector with these angles
+        \item Can then pass the TimeSeries or python arrays directly on for
+            further analysis or write to frame with e.g. pylal frame library
+    \end{enumerate}
+\end{frame}
 
+\begin{frame}
+    \frametitle{LALSim \& Swig}
+    Currently using LALSim/Swig in LIB post-merger studies:
+    \begin{enumerate}
+        \item Read quadrupole moments $\ddot{I_{xx}}, \ddot{I_{xy}}, \dots$ from
+            file
+        \item Construct expansion parameters $H_{lm}$ (see LIGO-T1000553)
+        \item Generate random $(\theta,~\phi)$ and construct
+            \begin{equation}
+                h_+ - ih_{\times} = \frac{1}{D} \sum_{l=2}^{\infty}
+                \sum_{m=-2}^{m=2} H_{lm}(t) ^{-2}Y_{lm}(\theta, \phi)
+            \end{equation}
+        \item Choose detector, sky-location \& project $h_{+,\times}$ onto
+            detector
+        \item Write to frame, generate cache file
+        \item Call {\tt lalinference\_nest} with {\tt subprocess.call()}
+        \item Delete frame, cache
+        \item repeat (3--7)\dots
+    \end{enumerate}
 \end{frame}
 
 \begin{frame}
     \frametitle{Summary}
     \begin{itemize}
-        \item 
+        \item {\tt LALSimulation} + {\tt LALBurst} + {\tt GSTLAL} =  well
+            documented, largely reviewed and easy way to generate MDCs
+        \item Can be run by \emph{anyone} with LDG access (i.e., software is
+            installed system-wide)
+        \item Used in ETG trigger study \& cosmic string analysis
+        \item Only standard ad hoc burst waveforms (+strings) currently supported
+        \item NINJA can be used for unparameterized, astrophysical waveforms
+            (e.g., NR mergers, SNe) but some maintenance required, details TBD
+            for SNe
+        \item Swig-wrapped {\tt LAL}: high-level routines for waveform
+            generation \& injection - useful for development \& plotting
+        \item Wiki to collate info \& examples coming soon!
     \end{itemize}
 \end{frame}
 
