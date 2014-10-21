@@ -19,5 +19,6 @@ DATADIR=$1
 # same name and location as the NINJA frame
 OUTFILE="`ls $DATADIR/NINJA*gwf | sed "s/gwf/xml/g"`"
 
-lalapps_ninja --datadir ${DATADIR} --outfile=${OUTFILE} \
-	--min-mass-ratio 0 --max-mass-ratio 10 --freq-lo 40 
+echo "RUNNING:"
+echo "lalapps_ninja --datadir ${DATADIR} --outfile=${OUTFILE} --min-mass-ratio 0 --max-mass-ratio 10 --freq-lo 40 --pattern *gwf"
+lalapps_ninja --datadir ${DATADIR} --outfile=${OUTFILE}  --min-mass-ratio 0 --max-mass-ratio 10 --freq-lo 40 --pattern *gwf

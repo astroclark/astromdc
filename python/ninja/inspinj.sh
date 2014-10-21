@@ -9,8 +9,8 @@
 FRAMEPATH=${1}
 GPSSTART=871147814
 #DURATION=604800
-DURATION=$((871752614-871147814))
-SEED=$2
+DURATION=$((128))
+SEED=101
 
 NRFILE=`find ${FRAMEPATH}/NINJA*xml -type f -print | awk -F'/' '{print $NF}'`
 WAVEFORM=`echo ${NRFILE} | sed "s/.xml//g"`
@@ -25,10 +25,14 @@ fi
 OUTPUT="${FRAMEPATH}/HL-INJECTIONS_${WAVEFORM}_${SEED}-${GPSSTART}-${DURATION}.xml"
 
 GPSEND=$((${GPSSTART} + ${DURATION}))
+
+echo "lalapps_inspinj --i-distr uniform --seed ${SEED} --waveform ${WAVEFORM} --gps-start-time ${GPSSTART} --gps-end-time ${GPSEND} --time-step 10 --time-interval 10 --l-distr random --d-distr uniform --min-distance 50 --max-distance 8000 --min-mtotal 1 --max-mtotal 1 --m-distr nrwaves --f-lower 40 --real8-ninja2 --nr-file "${FRAMEPATH}/${WAVEFORM}.xml" --output ${OUTPUT}"
+
+
 lalapps_inspinj \
     --i-distr uniform --seed ${SEED} \
     --waveform ${WAVEFORM} \
-    --gps-start-time ${GPSSTART} --gps-end-time ${GPSEND} --time-step 60 \
+    --gps-start-time ${GPSSTART} --gps-end-time ${GPSEND} --time-step 10 \
     --time-interval 10 --l-distr random --d-distr uniform \
     --min-distance 50 --max-distance 8000 \
     --min-mtotal 1 --max-mtotal 1 \

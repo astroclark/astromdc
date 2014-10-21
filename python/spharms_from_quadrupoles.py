@@ -126,8 +126,8 @@ for m in [-2,2]:
     Hlm = construct_Hlm(Ixx, Ixy, Ixz, Iyy, Iyz, Izz, l=2, m=m)
 
     # Populate time series
-    hplus_sim.data.data  = Hlm.real
-    hcross_sim.data.data = -1*Hlm.imag
+    hplus_sim.data.data  = extract_dist*Hlm.real
+    hcross_sim.data.data = extract_dist*-1*Hlm.imag
 
     # --- Apply Tapering Window
     lalsim.SimInspiralREAL8WaveTaper(hplus_sim.data,
