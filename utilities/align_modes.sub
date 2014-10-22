@@ -1,0 +1,11 @@
+universe   = vanilla
+executable = /home/lppekows/ninja2/utilities/align_modes.py
+arguments  = "$(macroargs) "
+copy_to_spool = False
+getenv = True
+log    = align_modes.log
+error  = logs/align_modes-$(cluster)-$(process).err
+output = logs/align_modes-$(cluster)-$(process).out
+notification = never
+requirements = Memory > 3500
+queue 1
