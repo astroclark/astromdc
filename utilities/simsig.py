@@ -30,11 +30,25 @@ import pycbc.filter
 import lal
 import lalsimulation as lalsim
 
-# ---------
-# FUNC DEFS
-
 # ----------
 # CLASS DEFS
+
+class ExtParams:
+    """
+    A structure to store extrinsic parameters of a signal
+    """
+    
+    def __init__(self, distance, ra, dec, polarization, inclination, phase,
+            geocent_peak_time):
+
+        self.distance = distance
+        self.ra  = ra
+        self.dec = dec
+        self.polarization = polarization
+        self.inclination = inclination
+        self.phase = phase
+        self.geocent_peak_time = lal.LIGOTimeGPS(geocent_peak_time)
+
 class DetData:
     """
     The data stream (signal+noise) for a given detector & event
@@ -42,7 +56,7 @@ class DetData:
     def __init__(self, det_site="H1", noise_curve=None, epoch=0.0,
             duration=256.0, f_low=10.0, delta_t=1./4096, waveform=None,
             ext_params=None, seed=0, signal_only=False, taper=False,
-            optimal_injection=False):
+            optimal_injection=False, set_optimal_snr=None):
 
         # dictionary of detector locations
         det_sites = {"H1": lal.CachedDetectors[lal.LHO_4K_DETECTOR], 
@@ -57,6 +71,7 @@ class DetData:
         self.seed = seed
         self.taper = taper
         self.optimal_injection=optimal_injection
+        self.set_optimal_snr=set_optimal_snr
         self.noise_curve = noise_curve
         self.det_site = det_sites[det_site]
         self.epoch = lal.LIGOTimeGPS(epoch)
@@ -71,9 +86,35 @@ class DetData:
         if waveform is not None:
 
             self.ext_params = ext_params
-            print >> sys.stdout, "projecting waveform"
             self.make_signal(waveform)
             self.waveform_name = waveform['waveform_name']
+
+            # --- Compute optimal SNR
+            if noise_curve is not None and waveform is not None:
+
+                # Set up noise curve
+                Fny  = 0.5 / self.td_signal.delta_t
+                flen = len(self.td_signal.to_frequencyseries().data)
+                self.snr_psd = create_noise_curve(self.noise_curve, self.f_low,
+                        self.td_signal.to_frequencyseries().delta_f, flen)
+
+                # compute SNR
+                print "computing snr"
+                self.optimal_snr = pycbc.filter.sigma(self.td_signal,
+                        self.snr_psd, low_frequency_cutoff=self.f_low,
+                        high_frequency_cutoff=0.5 / self.delta_t)
+
+                if self.set_optimal_snr is not None:
+
+                    # Rescale time domain signal to the desired optimal snr
+                    print "rescaling and recomputing snr"
+                    self.td_signal *= self.set_optimal_snr / self.optimal_snr
+                    self.optimal_snr *= self.set_optimal_snr / self.optimal_snr
+
+                    # Now recompute optimal snr
+                    #self.optimal_snr = pycbc.filter.sigma(self.td_signal,
+                    #        self.snr_psd, low_frequency_cutoff=self.f_low,
+                    #        high_frequency_cutoff=0.5 / self.delta_t)
 
         else:
             self.waveform_name = None
@@ -86,17 +127,16 @@ class DetData:
             self.add_signal_to_noise()
 
         # --- Make frequency domain data
-        self.make_fdomain()
-
-        # --- Compute optimal SNR
-        if noise_curve is not None and waveform is not None:
-
-            self.assign_noise_curve()
-            self.optimal_snr = pycbc.filter.sigma(self.td_signal, self.psd,
-                    low_frequency_cutoff=self.f_low, \
-                    high_frequency_cutoff=0.5 / self.delta_t)
+        #print "making F-domain data"
+        #self.make_fdomain()
 
 
+    # ------ End Init
+
+
+    # ---------------
+    # DetData Methods
+    # ---------------
 
     def make_fdomain(self):
 
@@ -106,10 +146,6 @@ class DetData:
 
         # don't forget the psd
         self.delta_f = self.fd_response.delta_f
-
-    # ---------------
-    # DetData Methods
-    # ---------------
 
     def make_signal(self, waveform):
         """
@@ -132,7 +168,7 @@ class DetData:
         waveform['hplus'].epoch  = self.ext_params.geocent_peak_time - idx*self.delta_t
         waveform['hcross'].epoch = self.ext_params.geocent_peak_time - idx*self.delta_t
 
-        # XXX: TAPER
+        # Apply tapering
         if self.taper:
 
             lalsim.SimInspiralREAL8WaveTaper(waveform['hplus'].data,
@@ -145,17 +181,18 @@ class DetData:
         waveform['hplus'].data.data  *= waveform['Dref'] / self.ext_params.distance
         waveform['hcross'].data.data *= waveform['Dref'] / self.ext_params.distance
 
-        # Inclination dependence
-        waveform['hplus'].data.data  *= ( 1.0 + np.cos(self.ext_params)*np.cos(self.ext_params) )
-        waveform['hcross'].data.data *= 2.0 * np.cos(self.ext_params)
-
-        waveform  (1+np.cos(w)**2)
+        # Inclination dependence (see e.g.,
+        # http://arxiv.org/abs/gr-qc/0308050v1), or any pulsar paper)
+        waveform['hplus'].data.data  *= 0.5 * ( 1.0 +
+                np.cos(self.ext_params.inclination)*np.cos(self.ext_params.inclination) )
+        waveform['hcross'].data.data *= np.cos(self.ext_params.inclination)
 
 
         if not self.optimal_injection:
 
-            # FIXME: not sure this is a good thing to use for very long
-            # waveforms
+            # This function computes antenna factors every 250 ms and should be
+            # perfect for our purposes
+            print >> sys.stdout, "projecting waveform"
             tmp = lalsim.SimDetectorStrainREAL8TimeSeries(waveform['hplus'],
                     waveform['hcross'], self.ext_params.ra, self.ext_params.dec,
                     self.ext_params.polarization, self.det_site) 
@@ -167,7 +204,7 @@ class DetData:
             del tmp
 
         else:
-            print 'injecting optimally'
+            print 'injecting optimally FOR THIS DETECTOR'
             self.td_signal = \
                     pycbc.types.timeseries.TimeSeries(initial_array=np.copy(waveform['hplus'].data.data),
                             delta_t=waveform['hplus'].deltaT,
@@ -195,7 +232,8 @@ class DetData:
         else:
             # Generate noise 
             print >> sys.stdout, "making noise"
-            self.assign_noise_curve()
+            self.psd = create_noise_curve(self.noise_curve, self.f_low,
+                    self.delta_f, self.flen)
 
             # Generate time-domain noise
             # XXX: minimum duration seems to be 1 second.  I'll hack around this by
@@ -213,112 +251,6 @@ class DetData:
 
             self.fd_noise = self.td_noise.to_frequencyseries()
 
-    def assign_noise_curve(self):
-
-        ligo3_curves=['base', 'highNN', 'highSPOT', 'highST',
-                'highSei', 'highloss', 'highmass', 'highpow', 'highsqz',
-                'lowNN', 'lowSPOT', 'lowST', 'lowSei']
-
-        if self.noise_curve=='aLIGO': 
-            from pycbc.psd import aLIGOZeroDetHighPower
-            self.psd = aLIGOZeroDetHighPower(self.flen, self.delta_f, self.f_low) 
-        elif self.noise_curve=='adVirgo':
-            from pycbc.psd import AdvVirgo
-            self.psd = AdvVirgo(self.flen, self.delta_f, self.f_low) 
-        elif self.noise_curve=='Green' or self.noise_curve=='Red':
-
-            # Load from ascii
-            pmnspy_path=os.getenv('PMNSPY_PREFIX')
-
-            psd_path=pmnspy_path+'/ligo3/PSD/%sPSD.txt'%self.noise_curve
-
-            psd_data=np.loadtxt(psd_path)
-
-            target_freqs = np.arange(0.0, self.flen*self.delta_f,
-                    self.delta_f)
-            target_psd = np.zeros(len(target_freqs))
-
-            # Interpolate existing psd data to target frequencies
-            existing = \
-                    np.concatenate(np.argwhere(
-                        (target_freqs<=psd_data[-1,0]) *
-                        (target_freqs>=psd_data[0,0])
-                        ))
-
-            target_psd[existing] = \
-                    np.interp(target_freqs[existing], psd_data[:,0],
-                            psd_data[:,1])
-
-            # Extrapolate to higher frequencies assuming f^2 for QN
-            fit_idx = np.concatenate(np.argwhere((psd_data[:,0]>2000)*\
-                    (psd_data[:,0]<=psd_data[-1,0])))
-
-            p = np.polyfit(x=psd_data[fit_idx,0], \
-                    y=psd_data[fit_idx,1], deg=2)
-
-            target_psd[existing[-1]+1:] = \
-                    p[0]*target_freqs[existing[-1]+1:]**2 +  \
-                    p[1]*target_freqs[existing[-1]+1:] + \
-                    p[2]
-
-            # After all that, reset everything below f_low to zero (this saves
-            # significant time in noise generation if we only care about high
-            # frequencies)
-            target_psd[target_freqs<self.f_low] = 0.0
-
-            # Create psd as standard frequency series object
-            self.psd = pycbc.types.FrequencySeries(
-                    initial_array=target_psd, delta_f=np.diff(target_freqs)[0])
-
-        elif self.noise_curve in ligo3_curves:
-
-            # Load from ascii
-            pmnspy_path=os.getenv('PMNSPY_PREFIX')
-
-            psd_path=pmnspy_path+'/ligo3/PSD/BlueBird_%s-PSD_20140904.txt'%self.noise_curve
-
-            psd_data=np.loadtxt(psd_path)
-
-            target_freqs = np.arange(0.0, self.flen*self.delta_f,
-                    self.delta_f)
-            target_psd = np.zeros(len(target_freqs))
-
-            # Interpolate existing psd data to target frequencies
-            existing = \
-                    np.concatenate(np.argwhere(
-                        (target_freqs<=psd_data[-1,0]) *
-                        (target_freqs>=psd_data[0,0])
-                        ))
-
-            target_psd[existing] = \
-                    np.interp(target_freqs[existing], psd_data[:,0],
-                            psd_data[:,1])
-
-            # Extrapolate to higher frequencies assuming f^2 for QN
-            fit_idx = np.concatenate(np.argwhere((psd_data[:,0]>2000)*\
-                    (psd_data[:,0]<=psd_data[-1,0])))
-
-            p = np.polyfit(x=psd_data[fit_idx,0], \
-                    y=psd_data[fit_idx,1], deg=2)
-
-            target_psd[existing[-1]+1:] = \
-                    p[0]*target_freqs[existing[-1]+1:]**2 +  \
-                    p[1]*target_freqs[existing[-1]+1:] + \
-                    p[2]
-
-            # After all that, reset everything below f_low to zero (this saves
-            # significant time in noise generation if we only care about high
-            # frequencies)
-            target_psd[target_freqs<self.f_low] = 0.0
-
-            # Create psd as standard frequency series object
-            self.psd = pycbc.types.FrequencySeries(
-                    initial_array=target_psd, delta_f=np.diff(target_freqs)[0])
-
-        else:
-            print >> sys.stderr, "error: noise curve (%s) not"\
-                " supported"%self.noise_curve
-            sys.exit(-1)
 
 
     def add_signal_to_noise(self):
@@ -326,6 +258,8 @@ class DetData:
         Sum the noise and the signal to get the 'measured' strain in the
         detector
         """
+
+        print "adding signal to noise (or reshaping to desired length)"
 
         # noise
         noise = lal.CreateREAL8TimeSeries('blah', self.epoch, 0,
@@ -366,6 +300,24 @@ class DetData:
 
 
         del noise, signal, noise_plus_signal
+
+# ---------
+# FUNC DEFS
+
+def create_noise_curve(noise_curve, f_low, delta_f, flen):
+
+    if noise_curve=='aLIGO': 
+        from pycbc.psd import aLIGOZeroDetHighPower
+        psd = aLIGOZeroDetHighPower(flen, delta_f, f_low) 
+    elif self.noise_curve=='adVirgo':
+        from pycbc.psd import AdvVirgo
+        psd = AdvVirgo(flen, delta_f, f_low) 
+    else:
+        print >> sys.stderr, "error: noise curve (%s) not"\
+            " supported"%self.noise_curve
+        sys.exit(-1)
+
+    return psd
         
 def read_waveformfile(filepath, waveform_name='magnetar', Dref=1.0,
         epoch=1099079350):
@@ -394,27 +346,18 @@ def read_waveformfile(filepath, waveform_name='magnetar', Dref=1.0,
     hplus.data.data = np.copy(hplus_tmp)
     hcross.data.data = np.copy(hcross_tmp)
 
+    # XXX: remove inclination terms introduced in MagnetarWaveformTesting.py
+    # NOTE: will ultimately move the signal generation into this code (simsig)
+    # and avoid ascii reading altogether
+    w = 0
+    hplus.data.data  /= (1.0+np.cos(w)**2.0)
+    hcross.data.data /= 2.0*np.cos(w)
+
     waveform = {'waveform_name':waveform_name, 'time':time, 'hplus':hplus,
             'hcross':hcross, 'Dref':Dref, 'Fs':Fs}
 
     return waveform
  
-class ExtParams:
-    """
-    A structure to store extrinsic parameters of a signal
-    """
-    
-    def __init__(self, distance, ra, dec, polarization, inclination, phase,
-            geocent_peak_time):
-
-        self.distance = distance
-        self.ra  = ra
-        self.dec = dec
-        self.polarization = polarization
-        self.inclination = inclination
-        self.phase = phase
-        self.geocent_peak_time = lal.LIGOTimeGPS(geocent_peak_time)
-
 
 def main():
     """
