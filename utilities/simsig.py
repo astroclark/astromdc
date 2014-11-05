@@ -94,9 +94,10 @@ class DetData:
 
                 # Set up noise curve
                 Fny  = 0.5 / self.td_signal.delta_t
-                flen = len(self.td_signal.to_frequencyseries().data)
+                tmp = self.td_signal.to_frequencyseries()
+                flen = len(tmp)
                 self.snr_psd = create_noise_curve(self.noise_curve, self.f_low,
-                        self.td_signal.to_frequencyseries().delta_f, flen)
+                        tmp.delta_f, flen)
 
                 # compute SNR
                 print "computing snr"
@@ -335,7 +336,7 @@ def read_waveformfile(filepath, waveform_name='magnetar', Dref=1.0,
     print 'reading waveform data'
 
     time, hplus_tmp, hcross_tmp = np.loadtxt(filepath, unpack=True)
-    Fs = int(1.0/np.diff(time)[0])
+    Fs = 4096
 
     # Put hplus, cross into TimeSeries
     hplus = lal.CreateREAL8TimeSeries('hplus', lal.LIGOTimeGPS(epoch), 0.0,
