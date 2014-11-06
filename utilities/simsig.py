@@ -54,9 +54,9 @@ class DetData:
     The data stream (signal+noise) for a given detector & event
     """
     def __init__(self, det_site="H1", noise_curve=None, epoch=0.0,
-            duration=256.0, f_low=10.0, delta_t=1./4096, waveform=None,
-            ext_params=None, seed=0, signal_only=False, taper=False,
-            optimal_injection=False, set_optimal_snr=None):
+            waveform=None, ext_params=None, taper=False,
+            optimal_injection=False, set_optimal_snr=None, scale_factor=1.0,
+            f_low=10):
 
         # dictionary of detector locations
         det_sites = {"H1": lal.CachedDetectors[lal.LHO_4K_DETECTOR], 
@@ -68,68 +68,56 @@ class DetData:
                     "recognised"%det_site
 
         # Preliminaries
-        self.seed = seed
+        #self.waveform = waveform
         self.taper = taper
         self.optimal_injection=optimal_injection
         self.set_optimal_snr=set_optimal_snr
+        self.scale_factor=scale_factor
         self.noise_curve = noise_curve
         self.det_site = det_sites[det_site]
+
         self.epoch = lal.LIGOTimeGPS(epoch)
-        self.duration = duration
+
         self.f_low = f_low
-        self.delta_t = delta_t
-        self.delta_f = 1.0 / self.duration
-        self.tlen = int(np.ceil(self.duration / self.delta_t))
-        self.flen = int(np.ceil(self.tlen/2 + 1))
+
+        #self.delta_t = delta_t
+        #self.delta_f = 1.0 / self.duration
+
+#       self.tlen = int(np.ceil(self.duration / self.delta_t))
+#       self.flen = int(np.ceil(self.tlen/2 + 1))
 
         # --- Make signal
-        if waveform is not None:
 
-            self.ext_params = ext_params
-            self.make_signal(waveform)
-            self.waveform_name = waveform['waveform_name']
+        self.ext_params = ext_params
+        self.make_signal(waveform)
+        self.waveform_name = waveform['waveform_name']
 
-            # --- Compute optimal SNR
-            if noise_curve is not None and waveform is not None:
+        # --- Compute optimal SNR
+        if noise_curve is not None:
 
-                # Set up noise curve
-                Fny  = 0.5 / self.td_signal.delta_t
-                tmp = self.td_signal.to_frequencyseries()
-                flen = len(tmp)
-                self.snr_psd = create_noise_curve(self.noise_curve, self.f_low,
-                        tmp.delta_f, flen)
+            # Set up noise curve
+            Fny  = 0.5 / self.td_signal.delta_t
+            tmp = self.td_signal.to_frequencyseries()
+            flen = len(tmp)
+            self.snr_psd = create_noise_curve(self.noise_curve, self.f_low,
+                    tmp.delta_f, flen)
 
-                # compute SNR
-                print "computing snr"
-                self.optimal_snr = pycbc.filter.sigma(self.td_signal,
-                        self.snr_psd, low_frequency_cutoff=self.f_low,
-                        high_frequency_cutoff=0.5 / self.delta_t)
+            # compute SNR
+            self.optimal_snr = pycbc.filter.sigma(self.td_signal,
+                    self.snr_psd, low_frequency_cutoff=self.f_low,
+                    high_frequency_cutoff=0.5 / self.td_signal.delta_t)
 
-                if self.set_optimal_snr is not None:
+            if self.set_optimal_snr is not None:
 
-                    # Rescale time domain signal to the desired optimal snr
-                    print "rescaling and recomputing snr"
-                    self.td_signal *= self.set_optimal_snr / self.optimal_snr
-                    self.optimal_snr *= self.set_optimal_snr / self.optimal_snr
+                # Rescale time domain signal to the desired optimal snr
+                self.rescalefac = self.set_optimal_snr / self.optimal_snr
+                self.td_signal *= self.rescalefac
+                self.optimal_snr *= self.set_optimal_snr / self.optimal_snr
 
-                    # Now recompute optimal snr
-                    #self.optimal_snr = pycbc.filter.sigma(self.td_signal,
-                    #        self.snr_psd, low_frequency_cutoff=self.f_low,
-                    #        high_frequency_cutoff=0.5 / self.delta_t)
-
-        else:
-            self.waveform_name = None
-
-        # --- Make noise
-        self.make_noise(signal_only)
-
-        # --- Add signal to noise
-        if waveform is not None:
-            self.add_signal_to_noise()
-
-        # --- Make frequency domain data
-        #print "making F-domain data"
-        #self.make_fdomain()
+                # Now recompute optimal snr
+                #self.optimal_snr = pycbc.filter.sigma(self.td_signal,
+                #        self.snr_psd, low_frequency_cutoff=self.f_low,
+                #        high_frequency_cutoff=0.5 / self.delta_t)
 
 
     # ------ End Init
@@ -139,14 +127,6 @@ class DetData:
     # DetData Methods
     # ---------------
 
-    def make_fdomain(self):
-
-        self.fd_signal = self.td_signal.to_frequencyseries()
-        self.fd_noise = self.td_noise.to_frequencyseries()
-        self.fd_response = self.td_response.to_frequencyseries()
-
-        # don't forget the psd
-        self.delta_f = self.fd_response.delta_f
 
     def make_signal(self, waveform):
         """
@@ -166,8 +146,10 @@ class DetData:
         # peak time minus the time to the waveform peak.  In other words:
         # (waveform epoch) = (geocentric peak time) - (# of seconds to peak)
 
-        waveform['hplus'].epoch  = self.ext_params.geocent_peak_time - idx*self.delta_t
-        waveform['hcross'].epoch = self.ext_params.geocent_peak_time - idx*self.delta_t
+        waveform['hplus'].epoch  = self.ext_params.geocent_peak_time \
+                - idx/float(waveform['Fs'])
+        waveform['hcross'].epoch = self.ext_params.geocent_peak_time \
+                - idx/float(waveform['Fs'])
 
         # Apply tapering
         if self.taper:
@@ -193,114 +175,28 @@ class DetData:
 
             # This function computes antenna factors every 250 ms and should be
             # perfect for our purposes
-            print >> sys.stdout, "projecting waveform"
             tmp = lalsim.SimDetectorStrainREAL8TimeSeries(waveform['hplus'],
                     waveform['hcross'], self.ext_params.ra, self.ext_params.dec,
                     self.ext_params.polarization, self.det_site) 
 
+            #print waveform['hplus'].epoch
+            #print tmp.epoch
+
             # Project waveform onto these extrinsic parameters
             self.td_signal = \
-                    pycbc.types.timeseries.TimeSeries(initial_array=np.copy(tmp.data.data),
+                    pycbc.types.timeseries.TimeSeries(initial_array=tmp.data.data,
                             delta_t=tmp.deltaT, epoch=tmp.epoch)
-            del tmp
 
         else:
             print 'injecting optimally FOR THIS DETECTOR'
             self.td_signal = \
-                    pycbc.types.timeseries.TimeSeries(initial_array=np.copy(waveform['hplus'].data.data),
+                    pycbc.types.timeseries.TimeSeries(initial_array=waveform['hplus'].data.data,
                             delta_t=waveform['hplus'].deltaT,
                             epoch=waveform['hplus'].epoch)
 
-        # Remove extraneous data
-        self.td_signal = self.td_signal.trim_zeros()
+        # Aplly scale factor 
+        self.td_signal *= self.scale_factor
 
-
-    def make_noise(self, signal_only):
-        """
-        Generate Gaussian noise coloured to psd for det
-        """
-
-        #print >> sys.stdout, "generating noise..."
-
-        if signal_only:
-
-            # the noise is just a time series of zeros
-            
-            self.td_noise = pycbc.types.timeseries.TimeSeries(
-                    initial_array=np.zeros(self.duration/self.delta_t),
-                        delta_t=self.delta_t, epoch=self.epoch)
-
-        else:
-            # Generate noise 
-            print >> sys.stdout, "making noise"
-            self.psd = create_noise_curve(self.noise_curve, self.f_low,
-                    self.delta_f, self.flen)
-
-            # Generate time-domain noise
-            # XXX: minimum duration seems to be 1 second.  I'll hack around this by
-            # reducing the 1 second to the desired duration
-            tmplen=max(self.duration,1.0)/self.delta_t
-            self.td_noise = pycbc.noise.noise_from_psd(int(tmplen), self.delta_t,
-                    self.psd, seed=self.seed)
-
-            zeroidx=self.td_noise.sample_times.data>self.duration
-            self.td_noise.data[zeroidx] = 0.0
-            self.td_noise = self.td_noise.trim_zeros()
-
-            # XXX not sure if this is a good idea...
-            self.td_noise.start_time = float(self.epoch)
-
-            self.fd_noise = self.td_noise.to_frequencyseries()
-
-
-
-    def add_signal_to_noise(self):
-        """
-        Sum the noise and the signal to get the 'measured' strain in the
-        detector
-        """
-
-        print "adding signal to noise (or reshaping to desired length)"
-
-        # noise
-        noise = lal.CreateREAL8TimeSeries('blah', self.epoch, 0,
-                self.td_noise.delta_t, lal.StrainUnit, 
-                int(self.td_noise.duration / self.td_noise.delta_t))
-        noise.data.data = self.td_noise.data
-
-        # signal
-        signal = lal.CreateREAL8TimeSeries('blah',
-                self.ext_params.geocent_peak_time, 0, self.td_signal.delta_t,
-                lal.StrainUnit, int(self.td_signal.duration /
-                    self.td_signal.delta_t))
-        signal.data.data = self.td_signal.data
-
-        # sum
-        noise_plus_signal = lal.AddREAL8TimeSeries(noise, signal)
-
-        self.td_response = \
-                pycbc.types.timeseries.TimeSeries(\
-                initial_array=np.copy(noise_plus_signal.data.data),
-                        delta_t=noise_plus_signal.deltaT,
-                        epoch=noise_plus_signal.epoch)
-
-        # Finally, zero-pad the signal vector to have the same length as the actual data
-        # vector
-        no_noise = lal.CreateREAL8TimeSeries('blah', self.td_noise.start_time, 0,
-                self.td_noise.delta_t, lal.StrainUnit, 
-                int(np.ceil(self.td_noise.duration / self.td_noise.delta_t)))
-
-        no_noise.data.data = np.zeros(\
-                int(np.ceil(self.td_noise.duration / self.td_noise.delta_t)))
-
-        signal = lal.AddREAL8TimeSeries(no_noise, signal)
-
-        self.td_signal = \
-                pycbc.types.timeseries.TimeSeries(initial_array=np.copy(signal.data.data),
-                        delta_t=signal.deltaT, epoch=noise_plus_signal.epoch)
-
-
-        del noise, signal, noise_plus_signal
 
 # ---------
 # FUNC DEFS
