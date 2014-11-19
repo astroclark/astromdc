@@ -11,7 +11,7 @@ gpsend=1097966376
 
 lalapps_inspinj \
     --i-distr uniform  --seed 101 \
-    --waveform MayaKranc_D12_a0.00_m129_nj \
+    --waveform NumRelNinja2 \
     --gps-start-time ${gpsstart} --gps-end-time ${gpsend} --time-step 128 \
     --time-interval 10 --l-distr random --d-distr volume \
     --min-distance 100000 --max-distance 1000000 \
