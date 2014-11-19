@@ -44,7 +44,7 @@ import lalsimulation as lalsim
 ####################################################
 # INPUT
 sample_rate = 16384
-step_back = 10 # number of seconds of data prior to peak amplitude to include
+step_back = 0.01 # number of seconds of data prior to peak amplitude to include
 
 #
 # Load data
@@ -62,6 +62,7 @@ times, hplus = \
         np.loadtxt(simdatafile, unpack=True)
 # ensure first time stamp is zero
 times -= times[0]
+times *= 1e-3
 
 # Resample (interpolate)
 hplus_interp = interp.interp1d(times, hplus)
@@ -75,7 +76,7 @@ hplus_new = hplus_new[startidx:]
 times_new = target_times[startidx:] - target_times[startidx]
 
 # Window
-hplus_out=hplus_new * lal.CreateTukeyREAL8Window(len(hplus_new), 0.25).data.data
+hplus_new*=lal.CreateTukeyREAL8Window(len(hplus_new), 0.25).data.data
 
 
 ## high-pass
@@ -85,24 +86,13 @@ hplus_out=hplus_new * lal.CreateTukeyREAL8Window(len(hplus_new), 0.25).data.data
 #   lal.HighPassREAL8TimeSeries(hplus_out, 0.1, 0.1, 20)
 
 
-# Remove inclination term
+# Remove inclination term (this gets added by ninja later)
+hplus_new /= np.real(lal.SpinWeightedSphericalHarmonic(lal.PI_2, 0, -2, 2, 0))
 
-
-sys.exit()
-
-
-######################################################################
-#                                                                    #
-# Construct expansion parameters and write to ascii in NINJA format  #
-#                                                                    #
-######################################################################
-
-# putting the data in laltimeseries allows us to use lalsim tapering functions
-hplus_sim=lal.CreateREAL8TimeSeries('hplus', lal.LIGOTimeGPS(), 0.0,
-        1./sample_rate, lal.StrainUnit, len(times))
-
-hcross_sim=lal.CreateREAL8TimeSeries('hcross', lal.LIGOTimeGPS(), 0.0,
-        1./sample_rate, lal.StrainUnit, len(times))
+# Geometerize and scale for distance (see line 243 of NRWaveIO.c)
+massMpc = lal.MRSUN_SI / ( extract_dist * lal.PC_SI * 1.0e6)
+hplus_new /= massMpc
+times_new /= lal.MTSUN_SI
 
 #
 # Construct an ini file for further processing with NINJA-type tools
@@ -119,29 +109,20 @@ simulation-details = {0}\n
 inifile.writelines(headerstr)
 
 # Loop over harmonics
-#for m in [-2,-1,0,1,2]:
-for m in [-2,2]:
+for m in [-2,-1,0,1,2]:
 
     filename=waveformlabel+"_l2m%d.asc"%m
 
-    # Construct expansion parameters
-    Hlm = construct_Hlm(Ixx, Ixy, Ixz, Iyy, Iyz, Izz, l=2, m=m)
-
-    # Populate time series
-    hplus_sim.data.data  = extract_dist*Hlm.real
-    hcross_sim.data.data = extract_dist*-1*Hlm.imag
-
-    # --- Apply Tapering Window
-    lalsim.SimInspiralREAL8WaveTaper(hplus_sim.data,
-            lalsim.SIM_INSPIRAL_TAPER_START)
-    lalsim.SimInspiralREAL8WaveTaper(hcross_sim.data,
-            lalsim.SIM_INSPIRAL_TAPER_START)
-
     # --- Write data to file
     f = open(filename,'w')
-    for j in range(hplus_sim.data.length):
-        f.write("%.16f %.16f %.16f\n"%(times[j], hplus_sim.data.data[j],
-            hcross_sim.data.data[j]))
+    for j in xrange(len(hplus_new)):
+        # Only have strain for 2,0 in axisymmetric simulations
+        if m==0:
+            f.write("%.16f %.16f 0.0\n"%(times_new[j], hplus_new[j]))
+        else:
+            # Still write out a file of zeros to suppress warnings/errors in NR
+            # codes
+            f.write("%.16f 0.0 0.0\n"%(times_new[j]))
     f.close()
 
     # --- append to ini file
