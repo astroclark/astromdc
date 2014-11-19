@@ -13,7 +13,7 @@ lalapps_inspinj \
     --i-distr uniform  --seed 101 \
     --waveform NumRelNinja2 \
     --gps-start-time ${gpsstart} --gps-end-time ${gpsend} --time-step 60 \
-    --time-interval 10 --l-distr random --d-distr volume \
+    --time-interval 10 --l-distr random --d-distr uniform \
     --min-distance 500 --max-distance 5000 \
     --min-mtotal 1 --max-mtotal 1 \
     --m-distr nrwaves --f-lower 10 \
