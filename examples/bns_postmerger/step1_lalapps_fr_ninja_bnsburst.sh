@@ -1,12 +1,12 @@
 #!/bin/sh
 # James Clark <james.clark@ligo.org>
 
-# location of NINJA2-format ascii files
+# location of NINJA-format ascii files
 example_name="dd2_135135"
-nrpath="../../waveform_data/bns_postmerger/${example_name}"
+nrpath="./"
 
 lalapps_fr_ninja \
-    --verbose --format NINJA1 \
+    --verbose --format NINJA2 \
     --double-precision \
     --nr-data-dir ${nrpath} \
     --nr-meta-file ${nrpath}/${example_name}.ini \

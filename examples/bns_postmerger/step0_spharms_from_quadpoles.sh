@@ -1,5 +1,15 @@
 #!/bin/bash
+#
+# Construct NINJA mode data from second time derivatives of quadrupole moments
+# (Ixxdotdot, etc)
 
-python ../../python/spharms_from_quadrupoles.py \
-    ../..//waveform_data/bns_postmerger/dd2_135135/secderivqpoles_16384Hz_dd2_135135_lessvisc.dat dd2_135135
-mv *ini *asc ../..//waveform_data/bns_postmerger/dd2_135135
+label="dd2_135135"
+datafile="secderivqpoles_16384Hz_dd2_135135_lessvisc.dat"
+extract_dist=20
+
+spharms_from_quadrupoles.py \
+    --waveform-name ${label} \
+    --extraction-distance ${extract_dist}\
+    --ninja-units \
+    ${datafile}
+
