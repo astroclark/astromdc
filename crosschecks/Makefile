@@ -24,7 +24,7 @@ timeslide.xml:
 	ligolw_tisi -i H1=0:0:1 -i L1=0:0:1 -i V1=0:0:1 > timeslide.xml
 
 SG361_test_BurstMDC-ER5BURST.xml: timeslide.xml
-	ligolw_burstmdc_to_simburst \
+	./ligolw_burstmdc_to_simburst \
 		-t timeslide.xml \
 		${BURSTMDC_LOG} \
 		-o ${INJ_XML}
