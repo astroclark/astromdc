@@ -16,7 +16,7 @@ lalapps_inspinj \
     --waveform NumRelNinja2 \
     --gps-start-time ${gpsstart} --gps-end-time ${gpsend} --time-step 60 \
     --time-interval 10 --l-distr random --d-distr uniform \
-    --min-distance 5 --max-distance 20 \
+    --min-distance 5 --max-distance 5 \
     --min-mtotal 1 --max-mtotal 1 \
     --m-distr nrwaves --f-lower 10 \
     --real8-ninja2 \
