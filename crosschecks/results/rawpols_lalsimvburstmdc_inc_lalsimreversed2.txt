@@ -1,0 +1,6 @@
+BurstMDC hrss(+):0.50, LALsim hrss(+): 2
+BurstMDC hrss(x):0.00, LALsim hrss(x): 0
+Plus overlap: 0.99
+Cross overlap: 0.99
+Plus match: 1.00
+Cross match: 1.00
