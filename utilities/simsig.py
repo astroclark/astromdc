@@ -206,12 +206,18 @@ def create_noise_curve(noise_curve, f_low, delta_f, flen):
     if noise_curve=='aLIGO': 
         from pycbc.psd import aLIGOZeroDetHighPower
         psd = aLIGOZeroDetHighPower(flen, delta_f, f_low) 
-    elif self.noise_curve=='adVirgo':
+    elif noise_curve=='iLIGO': 
+        from pycbc.psd import iLIGOSRD
+        psd = iLIGOSRD(flen, delta_f, f_low) 
+    elif noise_curve=='eLIGO': 
+        from pycbc.psd import eLIGOModel
+        psd = eLIGOModel(flen, delta_f, f_low) 
+    elif noise_curve=='adVirgo':
         from pycbc.psd import AdvVirgo
         psd = AdvVirgo(flen, delta_f, f_low) 
     else:
         print >> sys.stderr, "error: noise curve (%s) not"\
-            " supported"%self.noise_curve
+            " supported"%noise_curve
         sys.exit(-1)
 
     return psd
