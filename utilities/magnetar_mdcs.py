@@ -218,7 +218,6 @@ for frame_num in xrange(int(nframes)):
     # Loop over injections 
     #
     i=0
-    oldtime=0.0
     for inj in inj_times:
 
         # identify injections with data in this frame
