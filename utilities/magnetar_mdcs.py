@@ -95,13 +95,13 @@ def write_frame(TimeSeries, ifo, usertag, outdir):
 #
 # Read raw waveform data (future versions to generate this themselves)
 #
-waveform=simsig.read_waveformfile('./waveform_data/magnetars/magA_tapered.dat')
+waveform=simsig.read_waveformfile('/home/jclark/Projects/astromdc/magnetars/magA_tapered.dat')
 
 #
 # Set up frame timing
 #
-data_start = 1099268090
-data_len  = 1 * 60 * 60
+data_start = 946076460
+data_len  = 2 * 60 * 60
 frame_len = 512
 sample_rate = 4096
 delta_t = 1.0/4096
@@ -115,7 +115,7 @@ nframes = np.floor(data_len / frame_len)
 # Length (in seconds) of signal streams:
 signal_len=250     
 # Average length (in seconds) between start/end of injections: 
-injection_gap=30      
+injection_gap=100      
 # Add a (uniform) random jitter to the injection time
 injection_jitter=10   
 
@@ -193,7 +193,7 @@ for frame_num in xrange(int(nframes)):
 
             # Project signal onto these parameters
             h_DetData = simsig.DetData(waveform=waveform, ext_params=ext_params,
-                    det_site="H1", noise_curve='aLIGO', set_optimal_snr=10,
+                    det_site="H1", noise_curve='iLIGO', set_optimal_snr=15,
                     epoch=inj[0])
             h_signal_TimeSeries = TimeSeries_from_DetData(h_DetData)
 
