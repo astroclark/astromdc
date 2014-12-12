@@ -175,7 +175,8 @@ for frame_num in xrange(int(nframes)):
             #
 
             # Generate Sky angles
-            inj_ra  = -1.0*np.pi + 2.0*np.pi*np.random.random()
+            #inj_ra  = -1.0*np.pi + 2.0*np.pi*np.random.random()
+            inj_ra  = 2.0*np.pi*np.random.random()
             inj_dec = -0.5*np.pi + np.arccos(-1.0 + 2.0*np.random.random())
             inj_pol = 2.0*np.pi*np.random.random()
             inj_inc = 0.5*(-1.0*np.pi + 2.0*np.pi*np.random.random())
