@@ -29,7 +29,10 @@ from glue import lal as gluelal
 
 import simsig
 
-def TimeSeries_from_DetData(DetData):
+import pycbc.filter
+from pycbc.psd import aLIGOZeroDetHighPower
+
+def SwigTimeSeries_from_DetData(DetData):
     """
     Create and return a lal REAL8TimeSeries object from the data in an instance
     of the DetData() class from simsig
@@ -88,6 +91,42 @@ def write_frame(TimeSeries, ifo, usertag, outdir):
 
     return frame_out_path,cache_file
 
+def rescale_to_netsnr(det1_TimeSeries, det2_TimeSeries, targetsnr):
+        
+        flen = len(det1_TimeSeries.to_frequencyseries())
+        delta_f = \
+                np.diff(det1_TimeSeries.to_frequencyseries().sample_frequencies)[0]
+        f_low=10.0
+        psd = aLIGOZeroDetHighPower(flen, delta_f, f_low) 
+
+        sigma1sq = pycbc.filter.sigma(det1_TimeSeries,
+                low_frequency_cutoff=f_low, psd=psd)
+        sigma2sq = pycbc.filter.sigma(det2_TimeSeries,
+                low_frequency_cutoff=f_low, psd=psd)
+
+#       print '---'
+#       print 'original snr:'
+#       print np.sqrt(sigma1sq)
+#       print np.sqrt(sigma2sq)
+#       print np.sqrt(sigma1sq + sigma2sq)
+
+        snr_ratio = targetsnr**2 / (sigma1sq + sigma2sq)
+
+        det1_TimeSeries.data *= snr_ratio
+        det2_TimeSeries.data *= snr_ratio
+
+        sigma1sq = pycbc.filter.sigma(det1_TimeSeries,
+                low_frequency_cutoff=f_low, psd=psd)
+        sigma2sq = pycbc.filter.sigma(det2_TimeSeries,
+                low_frequency_cutoff=f_low, psd=psd)
+        
+#       print 'new snr:'
+#       print np.sqrt(sigma1sq)
+#       print np.sqrt(sigma2sq)
+#       print np.sqrt(sigma1sq + sigma2sq)
+
+        return det1_TimeSeries, det2_TimeSeries, np.sqrt(sigma1sq), np.sqrt(sigma2sq)
+        
 
 # -------------------------------------------------
 # Input & Configuration
@@ -95,7 +134,12 @@ def write_frame(TimeSeries, ifo, usertag, outdir):
 #
 # Read raw waveform data (future versions to generate this themselves)
 #
-waveform=simsig.read_waveformfile('/home/jclark/Projects/astromdc/magnetars/magA_tapered.dat')
+wavepath=sys.argv[1]
+outpath=sys.argv[2]
+wavename=sys.argv[3]
+netsnr=float(sys.argv[4])
+
+waveform=simsig.read_waveformfile('%s/%s'%(wavepath, wavename))
 
 #
 # Set up frame timing
@@ -124,12 +168,24 @@ inj_starts = np.arange(data_start+injection_gap, data_start+data_len,
         signal_len+injection_gap)
 
 # introduce some jitter
-inj_starts = inj_starts -0.5*injection_jitter + \
+inj_starts = inj_starts - 0.5*injection_jitter + \
         injection_jitter*np.random.rand(len(inj_starts))
 
 # array of injection times; useful for handling injections across frame
 # boundaries
 inj_times = np.transpose((inj_starts, inj_starts+signal_len))
+
+
+# Generate Sky angles
+inj_ra  = 2.0*np.pi*np.random.random(len(inj_times))
+inj_dec = -0.5*np.pi + np.arccos(-1.0 + 2.0*np.random.random(len(inj_times)))
+inj_pol = 2.0*np.pi*np.random.random(len(inj_times))
+inj_inc = 0.5*(-1.0*np.pi + 2.0*np.pi*np.random.random(len(inj_times)))
+inj_phase = 2.0*np.pi*np.random.random(len(inj_times))
+
+h_snr = np.zeros(len(inj_times))
+l_snr = np.zeros(len(inj_times))
+
 
 # -------------------------------------------------
 # Frame generation
@@ -138,8 +194,6 @@ inj_times = np.transpose((inj_starts, inj_starts+signal_len))
 # Begin loop over frames
 #
 
-f = open('injection_details.txt','w')
-f.writelines("# geocentStartTime ra_radians dec_radians pol_radians inc_radians\n")
 
 for frame_num in xrange(int(nframes)):
 
@@ -163,64 +217,68 @@ for frame_num in xrange(int(nframes)):
     #
     # Loop over injections 
     #
+    i=0
+    oldtime=0.0
     for inj in inj_times:
 
         # identify injections with data in this frame
         if (inj[0] <= frame_start <= inj[1]) or (frame_start <= inj[0] <= frame_stop):
 
-            print inj
+            print inj[0]
+
+            print inj_ra[i]
+            print inj_dec[i]
+            print ''
+
 
             #
             # Generate signal
-            #
-
-            # Generate Sky angles
-            #inj_ra  = -1.0*np.pi + 2.0*np.pi*np.random.random()
-            inj_ra  = 2.0*np.pi*np.random.random()
-            inj_dec = -0.5*np.pi + np.arccos(-1.0 + 2.0*np.random.random())
-            inj_pol = 2.0*np.pi*np.random.random()
-            inj_inc = 0.5*(-1.0*np.pi + 2.0*np.pi*np.random.random())
-            inj_phase = 2.0*np.pi*np.random.random()
-
-            f.writelines("{0:.9f} {1:.2f} {2:.2f} {3:.3f} {4:.2f}\n".format(
-                inj[0], inj_ra, inj_dec, inj_pol, inj_inc))
-
-
+            # 
+ 
             # Extrinsic params structure
-            ext_params = simsig.ExtParams(distance=1, ra=inj_ra, dec=inj_dec,
-                    polarization=inj_pol, inclination=inj_inc, phase=inj_phase,
+            ext_params = simsig.ExtParams(distance=1, ra=inj_ra[i], dec=inj_dec[i],
+                    polarization=inj_pol[i], inclination=inj_inc[i], phase=inj_phase[i],
                     geocent_peak_time=inj[0])
-
-
+ 
+ 
             # Project signal onto these parameters
             h_DetData = simsig.DetData(waveform=waveform, ext_params=ext_params,
-                    det_site="H1", noise_curve='iLIGO', set_optimal_snr=15,
-                    epoch=inj[0])
-            h_signal_TimeSeries = TimeSeries_from_DetData(h_DetData)
-
-
-            # Now rescale the L1 amplitude by the same factor used to boost the
-            # H1 SNR to 10 (so that we have consistent scalings)
+                    det_site="H1", noise_curve='eLIGO', epoch=inj[0])
+ 
             l_DetData = simsig.DetData(waveform=waveform, ext_params=ext_params,
-                    det_site="L1", noise_curve='aLIGO', epoch=inj[0],
-                    scale_factor=h_DetData.rescalefac)
-
-            l_signal_TimeSeries = TimeSeries_from_DetData(l_DetData)
-
-
+                    det_site="L1", noise_curve='eLIGO', epoch=inj[0])
+ 
+            # Rescale
+            h_DetData.td_signal, l_DetData.td_signal, h_snr[i], l_snr[i] = \
+                    rescale_to_netsnr(h_DetData.td_signal, l_DetData.td_signal,
+                            netsnr)
+ 
  
             #
             # Add to the frame
             #
-            h_frame_data = lal.AddREAL8TimeSeries(h_frame_data, h_signal_TimeSeries)
-            l_frame_data = lal.AddREAL8TimeSeries(l_frame_data, l_signal_TimeSeries)
-
+            h_signal_SwigTimeSeries = SwigTimeSeries_from_DetData(h_DetData)
+            l_signal_SwigTimeSeries = SwigTimeSeries_from_DetData(l_DetData)
+            h_frame_data = lal.AddREAL8TimeSeries(h_frame_data, h_signal_SwigTimeSeries)
+            l_frame_data = lal.AddREAL8TimeSeries(l_frame_data, l_signal_SwigTimeSeries)
+ 
+            i+=1
+ 
     #
     # Write out the frames
     #
-    write_frame(h_frame_data, 'H1', 'magA', './')
-    write_frame(h_frame_data, 'L1', 'magA', './')
+    write_frame(h_frame_data, 'H1', wavename.replace('.dat',''), '%s/'%outpath)
+    write_frame(h_frame_data, 'L1', wavename.replace('.dat',''), '%s/'%outpath)
 
+#
+# write injection details file
+#
+f = open('%s/injection_details.txt'%outpath,'w')
+f.writelines("# geocentStartTime ra_radians dec_radians pol_radians inc_radians networkSNR H1SNR L1SNR waveform\n")
+for i in xrange(len(inj_times)):
+   f.writelines("{0:.9f} {1:.2f} {2:.2f} {3:.3f} {4:.2f} {5:.2f} {6:.2f} {7:.2f} {8:s}\n".format(
+       inj_starts[i], inj_ra[i], inj_dec[i], inj_pol[i], inj_inc[i], \
+               netsnr, h_snr[i], l_snr[i], wavename.replace('.dat','')))
 f.close()
 
 
