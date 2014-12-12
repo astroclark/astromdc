@@ -144,6 +144,8 @@ np.random.seed(seed=seed)
 
 waveform=simsig.read_waveformfile('%s/%s'%(wavepath, wavename))
 
+f = open('%s/%s_injection_details.txt'%(outpath, wavename.replace('.dat','')),'w')
+
 #
 # Set up frame timing
 #
@@ -274,7 +276,6 @@ for frame_num in xrange(int(nframes)):
 #
 # write injection details file
 #
-f = open('%s/%s_injection_details.txt'%(wavename.replace('.dat',''),outpath),'w')
 f.writelines("# geocentStartTime ra_radians dec_radians pol_radians inc_radians networkSNR H1SNR L1SNR waveform\n")
 for i in xrange(len(inj_times)):
    f.writelines("{0:.9f} {1:.2f} {2:.2f} {3:.3f} {4:.2f} {5:.2f} {6:.2f} {7:.2f} {8:s}\n".format(
