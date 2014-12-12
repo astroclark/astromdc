@@ -223,8 +223,7 @@ for frame_num in xrange(int(nframes)):
         # identify injections with data in this frame
         if (inj[0] <= frame_start <= inj[1]) or (frame_start <= inj[0] <= frame_stop):
 
-            print inj[0]
-
+            print inj_starts[i]
             print inj_ra[i]
             print inj_dec[i]
             print ''
@@ -261,7 +260,7 @@ for frame_num in xrange(int(nframes)):
             h_frame_data = lal.AddREAL8TimeSeries(h_frame_data, h_signal_SwigTimeSeries)
             l_frame_data = lal.AddREAL8TimeSeries(l_frame_data, l_signal_SwigTimeSeries)
  
-            i+=1
+        i+=1
  
     #
     # Write out the frames
