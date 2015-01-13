@@ -155,9 +155,9 @@ class DetData:
         if self.taper:
 
             lalsim.SimInspiralREAL8WaveTaper(waveform['hplus'].data,
-                    lalsim.SIM_INSPIRAL_TAPER_START)
+                    lalsim.SIM_INSPIRAL_TAPER_STARTEND)
             lalsim.SimInspiralREAL8WaveTaper(waveform['hcross'].data,
-                    lalsim.SIM_INSPIRAL_TAPER_START)
+                    lalsim.SIM_INSPIRAL_TAPER_STARTEND)
 
 
         # Scale for distance
