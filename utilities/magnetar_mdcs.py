@@ -272,7 +272,7 @@ for frame_num in xrange(int(nframes)):
     # Write out the frames
     #
     write_frame(h_frame_data, 'H1', wavename.replace('.dat','')+'_%d'%seed, '%s/'%outpath)
-    write_frame(h_frame_data, 'L1', wavename.replace('.dat','')+'_%d'%seed, '%s/'%outpath)
+    write_frame(l_frame_data, 'L1', wavename.replace('.dat','')+'_%d'%seed, '%s/'%outpath)
 
 #
 # write injection details file
