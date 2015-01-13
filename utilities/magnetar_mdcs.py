@@ -144,7 +144,8 @@ np.random.seed(seed=seed)
 
 waveform=simsig.read_waveformfile('%s/%s'%(wavepath, wavename))
 
-f = open('%s/%s_seed-%d_injection_details.txt'%(outpath, wavename.replace('.dat','')),'w')
+f = open('%s/%s_seed%d_injection_details.txt'%(outpath,
+    wavename.replace('.dat',''), seed),'w')
 
 #
 # Set up frame timing
