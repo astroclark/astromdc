@@ -76,15 +76,10 @@ class DetData:
         self.noise_curve = noise_curve
         self.det_site = det_sites[det_site]
 
-        self.epoch = lal.LIGOTimeGPS(epoch)
+#        self.epoch = lal.LIGOTimeGPS(epoch)
 
         self.f_low = f_low
 
-        #self.delta_t = delta_t
-        #self.delta_f = 1.0 / self.duration
-
-#       self.tlen = int(np.ceil(self.duration / self.delta_t))
-#       self.flen = int(np.ceil(self.tlen/2 + 1))
 
         # --- Make signal
 
@@ -171,28 +166,22 @@ class DetData:
         waveform['hcross'].data.data *= np.cos(self.ext_params.inclination)
 
 
-        if not self.optimal_injection:
+        # This function computes antenna factors every 250 ms and should be
+        # perfect for our purposes
+        tmp = lalsim.SimDetectorStrainREAL8TimeSeries(waveform['hplus'],
+                waveform['hcross'], self.ext_params.ra, self.ext_params.dec,
+                self.ext_params.polarization, self.det_site) 
 
-            # This function computes antenna factors every 250 ms and should be
-            # perfect for our purposes
-            tmp = lalsim.SimDetectorStrainREAL8TimeSeries(waveform['hplus'],
-                    waveform['hcross'], self.ext_params.ra, self.ext_params.dec,
-                    self.ext_params.polarization, self.det_site) 
+        #print waveform['hplus'].epoch
+        #print self.det_site
+        #print tmp.epoch
 
-            #print waveform['hplus'].epoch
-            #print tmp.epoch
+        # Project waveform onto these extrinsic parameters
+        self.td_signal = \
+                pycbc.types.timeseries.TimeSeries(initial_array=tmp.data.data,
+                        delta_t=tmp.deltaT, epoch=tmp.epoch)
 
-            # Project waveform onto these extrinsic parameters
-            self.td_signal = \
-                    pycbc.types.timeseries.TimeSeries(initial_array=tmp.data.data,
-                            delta_t=tmp.deltaT, epoch=tmp.epoch)
-
-        else:
-            print 'injecting optimally FOR THIS DETECTOR'
-            self.td_signal = \
-                    pycbc.types.timeseries.TimeSeries(initial_array=waveform['hplus'].data.data,
-                            delta_t=waveform['hplus'].deltaT,
-                            epoch=waveform['hplus'].epoch)
+        self.epoch = tmp.epoch
 
         # Aplly scale factor 
         self.td_signal *= self.scale_factor

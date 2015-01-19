@@ -246,6 +246,7 @@ for frame_num in xrange(int(nframes)):
  
  
             # Project signal onto these parameters
+            print 'projecting signals'
             h_DetData = simsig.DetData(waveform=waveform, ext_params=ext_params,
                     det_site="H1", noise_curve='eLIGO', epoch=inj[0])
  
@@ -253,6 +254,7 @@ for frame_num in xrange(int(nframes)):
                     det_site="L1", noise_curve='eLIGO', epoch=inj[0])
  
             # Rescale
+            print 'rescaling to snr', netsnr
             h_DetData.td_signal, l_DetData.td_signal, h_snr[i], l_snr[i] = \
                     rescale_to_netsnr(h_DetData.td_signal, l_DetData.td_signal,
                             netsnr)
@@ -261,10 +263,13 @@ for frame_num in xrange(int(nframes)):
             #
             # Add to the frame
             #
+            print 'adding signals to frame streams'
             h_signal_SwigTimeSeries = SwigTimeSeries_from_DetData(h_DetData)
             l_signal_SwigTimeSeries = SwigTimeSeries_from_DetData(l_DetData)
             h_frame_data = lal.AddREAL8TimeSeries(h_frame_data, h_signal_SwigTimeSeries)
             l_frame_data = lal.AddREAL8TimeSeries(l_frame_data, l_signal_SwigTimeSeries)
+
+            #sys.exit()
  
         i+=1
  
