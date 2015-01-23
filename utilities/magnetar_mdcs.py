@@ -96,7 +96,9 @@ def rescale_to_netsnr(det1_TimeSeries, det2_TimeSeries, targetsnr):
         flen = len(det1_TimeSeries.to_frequencyseries())
         delta_f = \
                 np.diff(det1_TimeSeries.to_frequencyseries().sample_frequencies)[0]
+
         f_low=10.0
+
         psd = aLIGOZeroDetHighPower(flen, delta_f, f_low) 
 
         sigma1sq = pycbc.filter.sigmasq(det1_TimeSeries,
@@ -104,28 +106,17 @@ def rescale_to_netsnr(det1_TimeSeries, det2_TimeSeries, targetsnr):
         sigma2sq = pycbc.filter.sigmasq(det2_TimeSeries,
                 low_frequency_cutoff=f_low, psd=psd)
 
-#       print '---'
-#       print 'original snr:'
-#       print np.sqrt(sigma1sq)
-#       print np.sqrt(sigma2sq)
-#       print np.sqrt(sigma1sq + sigma2sq)
-
-        snr_ratio = targetsnr**2 / (sigma1sq + sigma2sq)
+        snr_ratio = np.sqrt(targetsnr**2 / (sigma1sq + sigma2sq))
 
         det1_TimeSeries.data *= snr_ratio
         det2_TimeSeries.data *= snr_ratio
 
-        sigma1sq = pycbc.filter.sigma(det1_TimeSeries,
-                low_frequency_cutoff=f_low, psd=psd)
-        sigma2sq = pycbc.filter.sigma(det2_TimeSeries,
+        sigma1 = pycbc.filter.sigma(det1_TimeSeries,
+              low_frequency_cutoff=f_low, psd=psd)
+        sigma2 = pycbc.filter.sigma(det2_TimeSeries,
                 low_frequency_cutoff=f_low, psd=psd)
         
-#       print 'new snr:'
-#       print np.sqrt(sigma1sq)
-#       print np.sqrt(sigma2sq)
-#       print np.sqrt(sigma1sq + sigma2sq)
-
-        return det1_TimeSeries, det2_TimeSeries, np.sqrt(sigma1sq), np.sqrt(sigma2sq)
+        return det1_TimeSeries, det2_TimeSeries, sigma1, sigma2
         
 
 # -------------------------------------------------
@@ -258,6 +249,9 @@ for frame_num in xrange(int(nframes)):
             h_DetData.td_signal, l_DetData.td_signal, h_snr[i], l_snr[i] = \
                     rescale_to_netsnr(h_DetData.td_signal, l_DetData.td_signal,
                             netsnr)
+
+            print 'measured SNRs: H1=%.2f, L1=%.2f, network=%.2f'%(h_snr[i],
+                    l_snr[i], np.sqrt(h_snr[i]**2 + l_snr[i]**2))
  
  
             #
