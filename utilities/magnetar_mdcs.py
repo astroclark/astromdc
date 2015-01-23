@@ -99,9 +99,9 @@ def rescale_to_netsnr(det1_TimeSeries, det2_TimeSeries, targetsnr):
         f_low=10.0
         psd = aLIGOZeroDetHighPower(flen, delta_f, f_low) 
 
-        sigma1sq = pycbc.filter.sigma(det1_TimeSeries,
+        sigma1sq = pycbc.filter.sigmasq(det1_TimeSeries,
                 low_frequency_cutoff=f_low, psd=psd)
-        sigma2sq = pycbc.filter.sigma(det2_TimeSeries,
+        sigma2sq = pycbc.filter.sigmasq(det2_TimeSeries,
                 low_frequency_cutoff=f_low, psd=psd)
 
 #       print '---'
