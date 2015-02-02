@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from __future__ import division
 import matplotlib as mpl
 mpl.use('Agg')
@@ -42,8 +44,9 @@ f0 = opts.f0
 print Bdip
 print f0
 
-Twave = 250#2048#1000
-fs = 8192.0
+Twave = 5#250#2048#1000
+#fs = 8192.0
+fs = 4096.0
 dt = 1/fs
 #fs = 16384;
 
