@@ -125,15 +125,22 @@ def rescale_to_netsnr(det1_TimeSeries, det2_TimeSeries, targetsnr):
 #
 # Read raw waveform data (future versions to generate this themselves)
 #
-wavepath=sys.argv[1]
-outpath=sys.argv[2]
-wavename=sys.argv[3]
-netsnr=float(sys.argv[4])
-seed=int(sys.argv[5])
+#wavepath=sys.argv[1]
+outpath=sys.argv[1]
+wavename=sys.argv[2]
+netsnr=float(sys.argv[3])
+sig_duration=float(sys.argv[4])
+start_freq=float(sys.argv[5])
+seed=int(sys.argv[6])
 
 np.random.seed(seed=seed)
 
-waveform=simsig.read_waveformfile('%s/%s'%(wavepath, wavename))
+#waveform=simsig.read_waveformfile('%s/%s'%(wavepath, wavename))
+
+print >> sys.stdout, "generating polarisations..."
+waveform = simsig.long_magnetar_wave(waveform_name=wavename, Duration=sig_duration,
+        fs=4096, f0=start_freq)
+
 
 f = open('%s/%s_seed%d_injection_details.txt'%(outpath,
     wavename.replace('.dat',''), seed),'w')
@@ -154,7 +161,7 @@ nframes = np.floor(data_len / frame_len)
 #
 
 # Length (in seconds) of signal streams:
-signal_len=250     
+signal_len=sig_duration     
 # Average length (in seconds) between start/end of injections: 
 injection_gap=100      
 # Add a (uniform) random jitter to the injection time
@@ -252,6 +259,7 @@ for frame_num in xrange(int(nframes)):
 
             print 'measured SNRs: H1=%.2f, L1=%.2f, network=%.2f'%(h_snr[i],
                     l_snr[i], np.sqrt(h_snr[i]**2 + l_snr[i]**2))
+
  
  
             #

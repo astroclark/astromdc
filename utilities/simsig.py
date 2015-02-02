@@ -249,6 +249,90 @@ def read_waveformfile(filepath, waveform_name='magnetar', Dref=1.0,
             'hcross':hcross, 'Dref':Dref, 'Fs':Fs}
 
     return waveform
+
+def long_magnetar_freq(f0=1000.0, Duration=100.0, Bdip=1e14, M=1.4, R=10, epsilonB=1e-3, fs=4096):
+    """
+    Generate phase, instantaneous frequency and frequency derivative for
+    post-merger magnetar with B-field induced Q-pole
+    """
+
+    # NS params
+    BdipSI = Bdip * 1e-4 # Tesla
+    f0_rot = f0/2.0
+
+    R *= 1e3
+    I = (2./5.) * M*lal.MSUN_SI * R**2
+
+    dt = 1./fs
+    times = np.arange(0,Duration,dt)
+    tdx  = xrange(1,len(times))
+
+    omegadot = np.zeros(len(times))
+    omega = np.zeros(len(times))
+    phase = np.zeros(len(times))
+
+    omega[0] = 2*lal.PI*f0_rot
+    
+    for t, time in zip(tdx,times[1:]):
+
+        omegadot[t] = -((BdipSI**2)*(R**6)/(6*I*lal.C_SI**3))*omega[t-1]**3 - \
+                ((32/5)*lal.G_SI*I*(epsilonB**2)/(lal.C_SI**5))*omega[t-1]**5
+
+        omega[t] = omega[t-1] + dt*omegadot[t]
+
+        phase[t] = phase[t-1] + 2*dt*omega[t]
+
+
+    return times, omegadot, omega, phase
+
+
+def long_magnetar_wave(waveform_name=None, f0=1000.0, Distance=1.0,
+        Duration=100.0, fs=4096, Bdip=1e14, M=1.4, R=10, epsilonB=1e-3,
+        epoch=1106937667):
+    """
+    Generate waveform constructed in MagnetarWaveformTesting.py
+
+    Note: the polarisations are generated without the inclination pre-factors
+    (1+cos(in)**2 etc).
+
+    """
+
+    if waveform_name==None:
+        print >> sys.stderr, "must provide waveform label"
+        sys.exit()
+
+
+    # Time-dependent part (frequency & phase)
+    times, omegadot, omega, phase = long_magnetar_freq(f0=f0,
+            Duration=Duration, Bdip=Bdip, M=M, R=R, epsilonB=epsilonB, fs=fs)
+
+
+    # Stellar params & wave amplitude
+    Distance *= 1e6*lal.PC_SI
+    R *= 1e3
+    I = (2./5.) * M*lal.MSUN_SI * R**2
+    h0 = (4*(lal.PI**2)*lal.G_SI*I*epsilonB/\
+            ((lal.C_SI**4)*Distance))*((omega/(2*lal.PI))**2)
+
+
+    # Put hplus, cross into TimeSeries
+    hplus = lal.CreateREAL8TimeSeries('hplus', lal.LIGOTimeGPS(epoch), 0.0,
+            1.0/fs, lal.StrainUnit, len(times))
+    hcross = lal.CreateREAL8TimeSeries('hplus', lal.LIGOTimeGPS(epoch), 0.0,
+            1.0/fs, lal.StrainUnit, len(times))
+
+    hplus.data.data = np.copy(h0 * np.cos(phase))
+    hcross.data.data = np.copy(h0 * np.sin(phase))
+
+    lalsim.SimInspiralREAL8WaveTaper(hplus.data,
+            lalsim.SIM_INSPIRAL_TAPER_STARTEND)
+    lalsim.SimInspiralREAL8WaveTaper(hcross.data,
+            lalsim.SIM_INSPIRAL_TAPER_STARTEND)
+
+    waveform = {'waveform_name':waveform_name, 'time':times, 'hplus':hplus,
+            'hcross':hcross, 'Dref':Distance/(1e6*lal.PC_SI), 'Fs':fs}
+
+    return waveform
  
 
 def main():
