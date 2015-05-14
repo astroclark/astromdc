@@ -149,7 +149,7 @@ f = open('%s/%s_seed%d_injection_details.txt'%(outpath,
 # Set up frame timing
 #
 data_start = 946076460
-data_len  = 2 * 60 * 60
+data_len  = 10 * 60 * 60
 frame_len = 512
 sample_rate = 4096
 delta_t = 1.0/4096
