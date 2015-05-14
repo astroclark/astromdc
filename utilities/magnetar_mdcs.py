@@ -131,7 +131,8 @@ wavename=sys.argv[2]
 netsnr=float(sys.argv[3])
 sig_duration=float(sys.argv[4])
 start_freq=float(sys.argv[5])
-seed=int(sys.argv[6])
+epsilonB=float(sys.argv[6])
+seed=int(sys.argv[7])
 
 np.random.seed(seed=seed)
 
